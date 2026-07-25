@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人 Agent 活动监工台</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>个人 <span>Agent</span> 活动监工台</h1>
+    <div class="tabs">
+      <button class="tab active" data-tab="overview">工作总览</button>
+      <button class="tab" data-tab="dashboard">每日监工台</button>
+      <button class="tab" data-tab="skills">Skill 统计</button>
+      <button class="tab" data-tab="journal">每日总结</button>
+    </div>
+    <div class="header-right">
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+      <div class="update-time" id="updateTime">--</div>
+    </div>
+  </div>
+
+  <div id="tab-overview">
+    <div class="stats-bar">
+      <div class="stat s-purple metric"><div class="num" id="ovToday">0</div><div class="lbl">今日任务</div></div>
+      <div class="stat s-green metric"><div class="num" id="ovTodayDur">0</div><div class="lbl">今日投入（全部 Agent 累计）</div></div>
+      <div class="stat s-amber metric"><div class="num" id="ovSessions">0</div><div class="lbl">累计会话</div></div>
+      <div class="stat s-blue metric"><div class="num" id="ovDur">0</div><div class="lbl">累计时长</div></div>
+    </div>
+    <div class="charts-row">
+      <div class="card chart-card">
+        <div class="chart-title">各 Agent 累计会话数</div>
+        <div id="ovBars"></div>
+      </div>
+      <div class="card chart-card">
+        <div class="chart-title">每日活动趋势（全部 Agent）</div>
+        <div id="ovTrend"></div>
+      </div>
+    </div>
+    <div class="section-title">AGENT 工作指标</div>
+    <div class="card" id="ovTable"><div class="empty">数据加载中…</div></div>
+  </div>
+
+  <div id="tab-dashboard" style="display:none">
+    <div class="stats-bar" id="statsBar">
+      <div class="stat s-amber" data-filter="waiting" title="点击筛选">
+        <div class="num" id="statWaiting">0</div><div class="lbl">等回话</div>
+      </div>
+      <div class="stat s-green" data-filter="working" title="点击筛选">
+        <div class="num" id="statWorking">0</div><div class="lbl">开工</div>
+      </div>
+      <div class="stat s-gray" data-filter="idle" title="点击筛选">
+        <div class="num" id="statIdle">0</div><div class="lbl">摸鱼</div>
+      </div>
+      <div class="stat s-purple" data-filter="all" title="显示全部">
+        <div class="num" id="statTotal">0</div><div class="lbl">今日任务</div>
+      </div>
+    </div>
+
+    <div class="section-title">AGENT 班组 <span class="filter-hint" id="filterHint"></span></div>
+    <div class="agents-stack" id="agentsStack"></div>
+
+    <div class="section-title">今日时间线 <span class="filter-hint">点击条目直达对应 Agent 会话</span></div>
+    <div class="card timeline" id="timeline"></div>
+  </div>
+
+  <div id="tab-skills" style="display:none">
+    <div class="section-title">SKILL 使用统计（累计） <span class="filter-hint">统计全部历史会话中的技能调用</span></div>
+    <div class="skill-search">
+      <span class="search-icon">⌕</span>
+      <input id="skillSearch" type="text" placeholder="搜索 Skill 名称…" autocomplete="off">
+      <span class="search-clear" id="skillSearchClear" title="清除">×</span>
+    </div>
+    <div class="charts-row">
+      <div class="card chart-card">
+        <div class="chart-title">使用次数排行</div>
+        <div id="skillBars"></div>
+      </div>
+      <div class="card chart-card">
+        <div class="chart-title">每日使用趋势</div>
+        <div id="skillTrend"></div>
+      </div>
+    </div>
+    <div class="card" id="skillsPanel"><div class="empty">暂无 Skill 使用记录</div></div>
+  </div>
+
+  <div id="tab-journal" style="display:none">
+    <div class="section-title">每日总结 <span class="filter-hint">记录与 Agent 协作的感受与心得，按天保存</span></div>
+    <div class="card journal-editor">
+      <div class="journal-today" id="journalToday"></div>
+      <textarea id="journalText" placeholder="写下今天与各 Agent 交流的感受、工作学习心得、踩过的坑和改进想法…"></textarea>
+      <div class="journal-actions">
+        <span class="journal-hint" id="journalHint"></span>
+        <button id="journalSave">保存今日总结</button>
+      </div>
+    </div>
+    <div class="section-title">历史总结</div>
+    <div id="journalList"><div class="empty">暂无历史总结</div></div>
+  </div>
+
+  <div class="footer">个人 Agent 活动监工台 © 2026 版权所有</div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="/app.js"></script>
+</body>
+</html>

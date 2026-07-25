@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# 运行时生成的文件
+server.log
+server.err
+send_task.txt
+send_result.txt
+send.log
+
+# 用户个人配置（含本地别名等）
+aliases.json
+
+# 每日总结数据（用户私有）
+journal.json
+
+# 旧截图
+screenshot-v2.png
+
+# macOS
+.DS_Store
+._*
+
+# IDE
+.idea/
+.vscode/
+*.swp
