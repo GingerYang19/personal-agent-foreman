@@ -224,6 +224,10 @@ personal-agent-foreman/
 - 新增 Agent 适配时，在 `server.py` 中添加 `poll_xxx()` 函数并注册到 `poll_all()`
 - 图表使用 SVG 手绘或 CSS 实现，不引入图表库
 
+## 贡献者
+
+- [GingerYang19](https://github.com/GingerYang19) — 项目作者
+
 ## 许可证
 
 [MIT License](LICENSE)
