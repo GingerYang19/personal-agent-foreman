@@ -2,6 +2,8 @@
 
 > 统一监控和管理多个桌面 AI Agent 工作状态的本地仪表盘
 
+[English](README_EN.md)
+
 一个轻量级的本地 Web 服务，实时采集 **Codex**、**QoderWork**、**Mulerun**、**Qoder**、**QwenWork** 等多个桌面 AI Agent 的会话数据，以浅色简约的仪表盘界面呈现工作状态、会话统计、Skill 使用分析和每日总结，并支持一键向 Agent 发话（注入消息）。
 
 ## 功能特性
