@@ -546,12 +546,92 @@ OVERVIEW_SCAN_INTERVAL = 300  # 秒
 SESSION_DUR_CAP = 480         # 单会话时长上限(min)，避免长期挂着的会话扭曲统计
 
 
-def _ov_add(ov, agent, created_ts, updated_ts):
+def _scan_jsonl_processing_time(path, today_start_ts):
+    """扫描 Qoder JSONL，按对话轮次计算 Agent 实际处理时间。
+    处理时间 = 每轮 user 消息 → 该轮最后一条 assistant 消息的时间间隔之和。
+    返回 (today_first_ts, total_processing_min, today_processing_min)。
+    """
+    today_first = None
+    total_sec = 0.0
+    today_sec = 0.0
+    turn_start = None   # 当前轮 user 消息时间
+    turn_end = None     # 当前轮最后 assistant 时间
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                    ts = rec.get("timestamp")
+                    if not ts:
+                        continue
+                    epoch = datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp()
+                except (json.JSONDecodeError, ValueError, TypeError):
+                    continue
+                role = rec.get("type") or rec.get("role") or ""
+                if today_first is None and epoch >= today_start_ts:
+                    today_first = epoch
+                if role == "user":
+                    # 结算上一轮
+                    if turn_start is not None and turn_end is not None and turn_end > turn_start:
+                        d = min(turn_end - turn_start, SESSION_DUR_CAP * 60)
+                        total_sec += d
+                        if turn_start >= today_start_ts:
+                            today_sec += d
+                    turn_start = epoch
+                    turn_end = None
+                elif role == "assistant":
+                    turn_end = epoch
+    except OSError:
+        pass
+    # 结算最后一轮
+    if turn_start is not None and turn_end is not None and turn_end > turn_start:
+        d = min(turn_end - turn_start, SESSION_DUR_CAP * 60)
+        total_sec += d
+        if turn_start >= today_start_ts:
+            today_sec += d
+    return today_first, total_sec / 60, today_sec / 60
+
+
+def _mulerun_turn_processing_time(conn, chat_id, today_start_ts):
+    """从 Mulerun turn_dispatches 计算精确的 Agent 处理时长。
+    处理时间 = 每轮 request_written_at → turn_finished_at 的间隔之和。
+    返回 (duration_min, today_first_ts)。
+    """
+    total_ms = 0.0
+    today_first = None
+    try:
+        for written, finished in conn.execute(
+                "SELECT request_written_at, turn_finished_at FROM turn_dispatches "
+                "WHERE chat_id = ? AND status = 'turn_finished' AND turn_finished_at IS NOT NULL",
+                (chat_id,)):
+            if not written or not finished or finished <= written:
+                continue
+            d = min(finished - written, SESSION_DUR_CAP * 60 * 1000)  # 单轮上限
+            total_ms += d
+            epoch = written / 1000
+            if today_first is None and epoch >= today_start_ts:
+                today_first = epoch
+    except Exception:
+        return None, None
+    if total_ms == 0:
+        return None, None
+    return total_ms / 60 / 1000, today_first
+
+
+def _ov_add(ov, agent, created_ts, updated_ts, today_start_override=None, dur_override=None, today_dur_override=None):
+    """聚合一条会话。
+    today_start_override: 今天实际开始工作的时间戳（用于跨天会话精确计算）
+    dur_override: 精确计算的累计时长(min)，替代简单的 created→mtime 触顶逻辑
+    today_dur_override: 精确计算的今日处理时长(min)，优先级最高
+    """
     if not updated_ts:
         return
     if not created_ts or created_ts > updated_ts:
         created_ts = updated_ts
-    dur = min((updated_ts - created_ts) / 60, SESSION_DUR_CAP)
+    dur = dur_override if dur_override is not None else min((updated_ts - created_ts) / 60, SESSION_DUR_CAP)
     ent = ov.setdefault(agent, {"name": agent, "sessions": 0, "duration_min": 0,
                                 "daily": {}, "today_count": 0, "today_min": 0})
     ent["sessions"] += 1
@@ -561,25 +641,69 @@ def _ov_add(ov, agent, created_ts, updated_ts):
     start, _ = get_today_range()
     if updated_ts >= start.timestamp():
         ent["today_count"] += 1
-        ent["today_min"] += dur
+        if today_dur_override is not None:
+            # 精确的今日处理时长（如 Qoder 按轮次计算）
+            today_dur = today_dur_override
+        elif created_ts >= start.timestamp():
+            # 会话今天创建：全部时长计入今日
+            today_dur = dur
+        elif today_start_override and today_start_override >= start.timestamp():
+            # 跨天会话，有精确的今日首次活动时间
+            today_dur = min((updated_ts - today_start_override) / 60, SESSION_DUR_CAP)
+        else:
+            # 跨天会话无精确数据：保守估计 30min（仅被触碰而非持续工作）
+            today_dur = 30
+        ent["today_min"] += max(today_dur, 0)
+
+
+def _db_chat_day_spans(conn, chat_id, ts_divisor=1, today_start_ts=0):
+    """从消息表按天计算会话活跃窗口。返回 (duration_min, today_first_ts)。
+    ts_divisor: 时间戳除数（秒=1，毫秒=1000）
+    """
+    day_spans = {}
+    today_first = None
+    try:
+        for (raw,) in conn.execute(
+                "SELECT created_at FROM messages WHERE chat_id = ? AND created_at IS NOT NULL ORDER BY created_at",
+                (chat_id,)):
+            epoch = raw / ts_divisor
+            if today_start_ts and epoch >= today_start_ts and today_first is None:
+                today_first = epoch
+            day = datetime.fromtimestamp(epoch, tz=TZ).strftime("%Y-%m-%d")
+            if day in day_spans:
+                day_spans[day][1] = epoch
+            else:
+                day_spans[day] = [epoch, epoch]
+    except Exception:
+        return None, None
+    if not day_spans:
+        return None, None
+    total = 0.0
+    for first, last in day_spans.values():
+        span = (last - first) / 60
+        total += max(span, 1) if span < 1 else min(span, SESSION_DUR_CAP)
+    return total, today_first
 
 
 def scan_overview():
     """累计聚合各 Agent 全部历史会话: 会话数/工作时长/每日分布/今日指标"""
     ov = {}
+    today_start_ts = get_today_range()[0].timestamp()
 
-    # QoderWork
+    # QoderWork（消息级时间戳精确计算每日活跃窗口）
     db = os.path.expanduser("~/Library/Application Support/QoderWork/data/agents.db")
     if os.path.exists(db):
         try:
             conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-            for c, u in conn.execute("SELECT created_at, updated_at FROM chats WHERE deleted_at IS NULL"):
-                _ov_add(ov, "QoderWork", c, u)
+            for cid, c, u in conn.execute("SELECT id, created_at, updated_at FROM chats WHERE deleted_at IS NULL"):
+                dur, today_first = _db_chat_day_spans(conn, cid, ts_divisor=1, today_start_ts=today_start_ts)
+                _ov_add(ov, "QoderWork", c, u,
+                        today_start_override=today_first, dur_override=dur)
             conn.close()
         except Exception as e:
             send_log(f"overview qoderwork: {e}")
 
-    # Qoder transcripts（创建时间取文件首条记录时间戳，getctime 在 macOS 上不可靠）
+    # Qoder transcripts（按轮次计算 Agent 实际处理时间）
     for path in glob.glob(os.path.expanduser("~/.qoder/projects/*/transcript/*.jsonl")):
         try:
             created = None
@@ -593,17 +717,25 @@ def scan_overview():
                         break
                 except (json.JSONDecodeError, ValueError):
                     continue
-            _ov_add(ov, "Qoder", created or os.path.getctime(path), os.path.getmtime(path))
+            created = created or os.path.getctime(path)
+            mtime = os.path.getmtime(path)
+            # 按轮次计算精确处理时间 + 今日处理时间
+            today_first, proc_dur, today_proc = _scan_jsonl_processing_time(path, today_start_ts)
+            _ov_add(ov, "Qoder", created, mtime,
+                    today_start_override=today_first, dur_override=proc_dur,
+                    today_dur_override=today_proc)
         except OSError:
             pass
 
-    # Mulerun
+    # Mulerun（turn_dispatches 精确轮次处理时长）
     db = os.path.expanduser("~/Library/Application Support/mulerun-desktop/mulerun.db")
     if os.path.exists(db):
         try:
             conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-            for c, u in conn.execute("SELECT created_at, last_turn_at FROM chats WHERE status != 'deleted'"):
-                _ov_add(ov, "Mulerun", (c or 0) / 1000, (u or 0) / 1000)
+            for cid, c, u in conn.execute("SELECT id, created_at, last_turn_at FROM chats WHERE status != 'deleted'"):
+                dur, today_first = _mulerun_turn_processing_time(conn, cid, today_start_ts)
+                _ov_add(ov, "Mulerun", (c or 0) / 1000, (u or 0) / 1000,
+                        today_start_override=today_first, dur_override=dur)
             conn.close()
         except Exception as e:
             send_log(f"overview mulerun: {e}")
