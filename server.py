@@ -52,7 +52,8 @@ SEND_HELPER = os.path.join(HUB_DIR, "SendHelper.app")
 SEND_TASK_FILE = os.path.join(HUB_DIR, "send_task.txt")
 SEND_RESULT_FILE = os.path.join(HUB_DIR, "send_result.txt")
 
-# UI 注入发话配置: proc = System Events 进程名, pre_key = 粘贴前聚焦聊天输入框的快捷键, delay = 等待会话窗口就绪秒数
+# UI 注入发话配置: proc = 用于 activate 的应用名(tell application), pre_key = 粘贴前聚焦聊天输入框的快捷键, delay = 等待会话窗口就绪秒数
+# 注: SendHelper 按键直发给前台应用, 不再 tell process(Qoder 等 Electron 应用的进程名与应用名不一致)
 UI_SEND = {
     "QoderWork": {"proc": "QoderWork",       "pre_key": None, "delay": 2.0},
     "Mulerun":   {"proc": "MuleRun Alibaba", "pre_key": None, "delay": 2.0},
@@ -881,6 +882,19 @@ def copy_to_clipboard(text):
     subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
 
 
+def helper_activate(app_name):
+    """经 SendHelper 将应用置前。launchd 后台进程直接 open/osascript 无法抢焦点，
+    独立 App 经 open -W 启动后具备激活其他应用的能力（与发话注入同一机制）。"""
+    try:
+        with open(SEND_TASK_FILE, "w", encoding="utf-8") as f:
+            f.write(f"{app_name}\n\nactivate")
+        # -g: SendHelper 自身不抢焦点，否则它退出时 macOS 会把焦点回退给之前的应用，
+        # 覆盖掉刚激活的目标应用
+        subprocess.run(["open", "-W", "-g", "-a", SEND_HELPER], capture_output=True, timeout=15)
+    except Exception as e:
+        send_log(f"activate {app_name}: {e}")
+
+
 def inject_message(agent, task, message):
     """真发话: 消息进剪贴板 -> 深链跳到会话 -> SendHelper.app 粘贴并回车"""
     cfg = UI_SEND[agent]
@@ -910,26 +924,34 @@ def inject_message(agent, task, message):
 
 
 def open_url_or_app(agent, task):
-    """跳转到对应 Agent 的会话/项目，返回描述文本"""
+    """跳转到对应 Agent 的会话/项目，返回描述文本。
+    深链只负责应用内导航；除 QoderWork(handler 自带 bringToFront) 外，
+    其余应用需额外经 SendHelper 激活置前。"""
     if agent == "Codex":
         subprocess.run(["open", f"codex://threads/{task['id']}"], check=True)
+        helper_activate("Codex")
         return "已打开 Codex 会话"
     if agent == "Mulerun":
         subprocess.run(["open", f"mulerun://session/{task['id']}"], check=True)
+        helper_activate("MuleRun Alibaba")
         return "已打开 Mulerun 会话"
     if agent == "Qoder":
         cwd = task.get("cwd")
         if cwd and os.path.isdir(cwd):
             subprocess.run(["open", "-a", "Qoder", cwd], check=True)
+            helper_activate("Qoder")
             return f"已在 Qoder 打开 {os.path.basename(cwd)}"
         subprocess.run(["open", "-a", "Qoder"], check=True)
+        helper_activate("Qoder")
         return "已唤起 Qoder"
     if agent == "QoderWork":
-        # 深链直达会话（应用内部路由 /chats/:chatId），路由不存在时也会唤起应用
-        subprocess.run(["open", f"qoder-work://chats/{task['id']}"], check=True)
+        # 深链直达会话：app 的 handleDeepLink 白名单仅支持 notification-click?chatId= 导航到会话
+        # （chats/<id> 路由不存在，只会激活应用不导航）；handler 内部 bringToFront，无需额外激活
+        subprocess.run(["open", f"qoder-work://notification-click?chatId={task['id']}"], check=True)
         return "已打开 QoderWork 会话"
     if agent == "QwenWork":
         subprocess.run(["open", "-a", "QwenWorkCN"], check=True)
+        helper_activate("QwenWorkCN")
         return "已唤起 QwenWork"
     raise ValueError(f"未知 agent: {agent}")
 
