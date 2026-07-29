@@ -370,7 +370,12 @@ def poll_codex():
     if not os.path.exists(db_path):
         return None
     try:
-        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        try:
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+            conn.execute("SELECT 1 FROM threads LIMIT 1")
+        except sqlite3.OperationalError:
+            # WAL 锁导致 ro 模式打不开时降级 immutable 快照读
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro&immutable=1", uri=True)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         start, _ = get_today_range()
@@ -743,16 +748,23 @@ def scan_overview():
         except Exception as e:
             send_log(f"overview mulerun: {e}")
 
-    # Codex
+    # Codex（mode=ro 被 WAL 锁拒绝时降级 immutable 快照读；仍失败则保留空条目，不从列表消失）
     db = os.path.expanduser("~/.codex/state_5.sqlite")
     if os.path.exists(db):
         try:
-            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+            try:
+                conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+                conn.execute("SELECT 1 FROM threads LIMIT 1")
+            except sqlite3.OperationalError:
+                conn = sqlite3.connect(f"file:{db}?mode=ro&immutable=1", uri=True)
             for c, u in conn.execute("SELECT created_at_ms, updated_at_ms FROM threads WHERE archived = 0"):
                 _ov_add(ov, "Codex", (c or 0) / 1000, (u or 0) / 1000)
             conn.close()
         except Exception as e:
             send_log(f"overview codex: {e}")
+        if "Codex" not in ov:
+            ov["Codex"] = {"name": "Codex", "sessions": 0, "duration_min": 0,
+                           "daily": {}, "today_count": 0, "today_min": 0}
 
     # QwenWork
     ws = os.path.expanduser("~/.qwenworkcn/workspace")
