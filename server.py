@@ -401,7 +401,9 @@ def poll_codex():
         conn.close()
         return agent_result("Codex", tasks, "cli")
     except Exception as e:
-        return agent_result("Codex", [], "cli", error=str(e))
+        # 数据库读取失败（如 WAL 锁）静默降级为离线，不在页面提示异常
+        send_log(f"poll codex: {e}")
+        return agent_result("Codex", [], "cli")
 
 
 def poll_qwenwork():
@@ -821,7 +823,8 @@ def save_journal_today(text):
 def poll_all():
     agents = []
     index = {}
-    for poller in [poll_qoderwork, poll_qoder, poll_mulerun, poll_codex, poll_qwenwork]:
+    # Codex 暂不常用，排在班组末位
+    for poller in [poll_qoderwork, poll_qoder, poll_mulerun, poll_qwenwork, poll_codex]:
         result = poller()
         if result:
             agents.append(result)
