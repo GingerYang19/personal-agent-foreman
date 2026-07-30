@@ -112,7 +112,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter","Pi
 .task-send button:hover { background:var(--dark); color:#fff; }
 .task-send button:disabled { opacity:.4; cursor:default; }
 
-.empty { text-align:center; padding:26px; color:var(--text-dim); font-size:13px; }
+.empty { text-align:center; padding:26px; color:var(--text-dim); font-size:13px; grid-column:1 / -1; }
 
 /* 时间线 */
 .timeline { padding:8px 18px; }
