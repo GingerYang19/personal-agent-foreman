@@ -412,24 +412,70 @@ def poll_codex():
 
 
 def poll_qwenwork():
-    ws_dir = os.path.expanduser("~/.qwenworkcn/workspace")
-    if not os.path.isdir(ws_dir):
+    """扫描 projects/*/*.jsonl（同时覆盖普通任务和 IM 频道任务）。
+    IM 频道会话的 cwd 是 /sessions/<id>/mnt，projects 下以 -sessions-*-mnt 软链指向
+    实际项目目录，扫描时按 realpath 去重并标记 IM 来源。旧的 workspace 目录 mtime
+    方案会漏掉不写工作区的 IM 任务。"""
+    proj_dir = os.path.expanduser("~/.qwenworkcn/projects")
+    if not os.path.isdir(proj_dir):
         return None
     try:
         start, _ = get_today_range()
+        # -sessions-* 软链的目标目录 = IM 频道任务
+        im_dirs = {os.path.realpath(p) for p in glob.glob(os.path.join(proj_dir, "-sessions-*"))}
         tasks = []
-        for entry in os.scandir(ws_dir):
-            if not entry.is_dir():
+        seen = set()
+        # 只扫 workspace 项目目录（含 IM 软链目标）；-Users-yakexi 等目录是
+        # 系统内部 MEMORY.md 维护会话，不是真实任务
+        for jsonl_path in glob.glob(os.path.join(proj_dir, "*-qwenworkcn-workspace-*", "*.jsonl")):
+            real = os.path.realpath(jsonl_path)
+            if real in seen:
                 continue
-            mod_dt = datetime.fromtimestamp(os.path.getmtime(entry.path), tz=TZ)
+            seen.add(real)
+            mtime = os.path.getmtime(jsonl_path)
+            mod_dt = datetime.fromtimestamp(mtime, tz=TZ)
             if mod_dt < start:
                 continue
+            title, cwd, first_ts = "", "", None
+            with open(jsonl_path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    try:
+                        obj = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if obj.get("type") == "workspace-directories" and not cwd:
+                        dirs = obj.get("directories") or []
+                        cwd = dirs[0] if dirs else ""
+                    if obj.get("type") == "user" and not title:
+                        content = obj.get("message", {}).get("content", "")
+                        if isinstance(content, list):
+                            content = " ".join(c.get("text", "") for c in content if isinstance(c, dict))
+                        text = str(content)
+                        # 去掉注入的环境提醒块，取真实任务文本作标题
+                        while "<system-reminder>" in text and "</system-reminder>" in text:
+                            pre, _sep, rest = text.partition("<system-reminder>")
+                            _mid, _sep, post = rest.partition("</system-reminder>")
+                            text = (pre + post).strip()
+                        title = text.strip()[:100]
+                    ts = obj.get("timestamp")
+                    if ts and first_ts is None and isinstance(ts, str):
+                        first_ts = ts
+            created_dt = None
+            if first_ts:
+                try:
+                    created_dt = datetime.fromisoformat(first_ts.replace("Z", "+00:00")).astimezone(TZ)
+                except (ValueError, TypeError):
+                    pass
+            is_im = os.path.dirname(real) in im_dirs
+            role, text = tail_last_message(jsonl_path)
             tasks.append(make_task(
-                entry.name, entry.name, "",
-                mod_dt,
-                datetime.fromtimestamp(os.path.getctime(entry.path), tz=TZ),
-                cwd=entry.path,
-                last_msg="工作区文件有更新",
+                os.path.basename(jsonl_path),
+                title or os.path.basename(jsonl_path),
+                "IM 频道" if is_im else os.path.basename(cwd) if cwd else "",
+                mod_dt, created_dt or mod_dt,
+                last_role=role,
+                cwd=cwd,
+                last_msg=text,
             ))
         return agent_result("QwenWork", tasks, "ui")
     except Exception as e:
@@ -766,15 +812,36 @@ def scan_overview():
             ov["Codex"] = {"name": "Codex", "sessions": 0, "duration_min": 0,
                            "daily": {}, "today_count": 0, "today_min": 0}
 
-    # QwenWork
-    ws = os.path.expanduser("~/.qwenworkcn/workspace")
-    if os.path.isdir(ws):
-        for entry in os.scandir(ws):
-            if entry.is_dir():
-                try:
-                    _ov_add(ov, "QwenWork", os.path.getctime(entry.path), os.path.getmtime(entry.path))
-                except OSError:
-                    pass
+    # QwenWork（projects JSONL 按轮次处理时间，覆盖普通+IM频道任务；软链去重，
+    # 仅扫 workspace 项目目录，排除系统内部 MEMORY 维护会话）
+    proj = os.path.expanduser("~/.qwenworkcn/projects")
+    if os.path.isdir(proj):
+        seen = set()
+        for path in glob.glob(os.path.join(proj, "*-qwenworkcn-workspace-*", "*.jsonl")):
+            real = os.path.realpath(path)
+            if real in seen:
+                continue
+            seen.add(real)
+            try:
+                created = None
+                with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                    head = f.read(4096)
+                for line in head.split("\n"):
+                    try:
+                        ts = json.loads(line).get("timestamp")
+                        if ts and isinstance(ts, str):
+                            created = datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp()
+                            break
+                    except (json.JSONDecodeError, ValueError):
+                        continue
+                created = created or os.path.getctime(path)
+                mtime = os.path.getmtime(path)
+                today_first, proc_dur, today_proc = _scan_jsonl_processing_time(path, today_start_ts)
+                _ov_add(ov, "QwenWork", created, mtime,
+                        today_start_override=today_first, dur_override=proc_dur,
+                        today_dur_override=today_proc)
+            except OSError:
+                pass
 
     result = []
     for ent in ov.values():
