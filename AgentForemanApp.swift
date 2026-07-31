@@ -81,9 +81,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let viewItem = NSMenuItem(); mainMenu.addItem(viewItem)
         let viewMenu = NSMenu(title: "显示")
         viewMenu.addItem(withTitle: "刷新", action: #selector(WKWebView.reload(_:)), keyEquivalent: "r")
+        viewMenu.addItem(.separator())
+        // 网页版入口: 同一服务也可在浏览器中使用，两种方式可共存
+        let browserItem = NSMenuItem(title: "在浏览器中打开",
+                                     action: #selector(openInBrowser), keyEquivalent: "b")
+        browserItem.keyEquivalentModifierMask = [.command, .shift]
+        browserItem.target = self
+        viewMenu.addItem(browserItem)
         viewItem.submenu = viewMenu
 
         NSApp.mainMenu = mainMenu
+    }
+
+    @objc private func openInBrowser() {
+        NSWorkspace.shared.open(URL(string: "http://localhost:\(port)/")!)
     }
 
     private func fatalAlert(_ text: String) {

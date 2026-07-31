@@ -9,7 +9,7 @@ A lightweight local web service that collects real-time session data from multip
 ## Features
 
 - **Multi-Agent Status Monitoring** — Real-time polling of 5 Agent data sources with tri-state detection (Working / Waiting for Reply / Idle), refreshed every 2 seconds
-- **Native Desktop App** — Double-click `AgentForeman.app` to use it in a standalone window (AppKit + WKWebView); the backend starts automatically, no command line and no browser
+- **Two Ways to Use** — Run it as a native desktop app by double-clicking `AgentForeman.app` (AppKit + WKWebView), or open the web version in any browser — both share the same service and data
 - **Session Classification & Timeline** — Task cards grouped by Agent, with a unified daily timeline of all activity
 - **Real-time Data Collection** — Supports SQLite, JSONL, and directory scanning data source formats with incremental caching to avoid redundant reads
 - **Message Injection** — Send messages directly to Agents from the browser (Codex via CLI / others via clipboard + deep link + keystroke injection)
@@ -64,20 +64,27 @@ cd personal-agent-foreman
 
 ### 2. Start the Service
 
-**Option A: Double-click the App (recommended)**
+There are two ways to use it — **desktop app** and **web version** — sharing the same backend service and data. Switch freely, or keep both open:
 
-Double-click `AgentForeman.app` in the repository root. It starts the background service and opens the dashboard in a **native desktop window** (no browser). If the service is already running, it just opens the window; closing the window leaves the backend collecting data.
+| Mode | Entry point | Best for |
+|------|-------------|----------|
+| **Desktop app** | Double-click `AgentForeman.app` | Using it as a standalone app with a Dock icon and menu bar |
+| **Web version** | Start from the command line and open `localhost:9527`; or in the desktop app choose “View → Open in Browser” (⌘⇧B) | Multi-tab comparison, side-by-side with other pages, remote forwarding |
+
+**Option A: Double-click the App (desktop, recommended)**
+
+Double-click `AgentForeman.app` in the repository root. It starts the background service and opens the dashboard in a **native desktop window**. If the service is already running, it just opens the window; closing the window leaves the backend collecting data. For the web version, choose “View → Open in Browser” from the menu.
 
 > If downloaded as a ZIP (not via git clone), the first launch may warn about an unverified developer: right-click the app → Open, or run `xattr -dr com.apple.quarantine AgentForeman.app` and retry.
 > To stop the service: `pkill -f 'python3 .*server.py'`.
 
-**Option B: Command line**
+**Option B: Command line (web version)**
 
 ```bash
 python3 server.py
 ```
 
-Once started, open **http://localhost:9527** in your browser.
+Once started, open **http://localhost:9527** in any browser (identical features to the desktop app).
 
 **Option C: Standalone installable app (drag into /Applications)**
 
