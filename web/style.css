@@ -193,4 +193,17 @@ body { font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter","Pi
 .toast.show { transform:translateX(-50%) translateY(0); }
 .toast.err { background:#7a2e2e; }
 
+/* 花名输入弹层（代替 prompt，WKWebView 不支持 prompt） */
+.dlg-mask { position:fixed; inset:0; background:rgba(30,28,24,0.32); display:flex; align-items:center; justify-content:center; z-index:200; }
+.dlg { background:#fff; border-radius:16px; padding:24px 26px; width:340px; max-width:88vw; box-shadow:0 16px 50px rgba(0,0,0,0.18); }
+.dlg-title { font-size:15px; font-weight:600; color:var(--dark); margin-bottom:6px; }
+.dlg-hint { font-size:12px; color:var(--text-dim); margin-bottom:16px; }
+.dlg-input { width:100%; box-sizing:border-box; font-size:14px; padding:10px 13px; border:1px solid var(--line); border-radius:10px; outline:none; font-family:inherit; background:var(--bg); }
+.dlg-input:focus { border-color:var(--purple); background:#fff; }
+.dlg-btns { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+.dlg-btns button { font-size:13px; font-family:inherit; padding:8px 18px; border-radius:999px; border:1px solid var(--line); background:#fff; color:var(--text-dim); cursor:pointer; }
+.dlg-btns button:hover { border-color:var(--dark); color:var(--dark); }
+.dlg-ok { background:var(--dark) !important; color:#fff !important; border-color:var(--dark) !important; }
+.dlg-ok:hover { opacity:.85; }
+
 @media(max-width:760px) { .stats-bar{grid-template-columns:repeat(2,1fr);} .task-grid{grid-template-columns:1fr;} .header{gap:12px;} .charts-row{grid-template-columns:1fr;} .bar-name{width:110px;} }

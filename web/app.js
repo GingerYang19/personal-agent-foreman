@@ -70,6 +70,46 @@ function applyFilter() {
 
 /* ── Agent 大卡片 ─────────────────────────────── */
 
+/* ── 花名输入弹层 ───────────────────────────────
+   不用 prompt()：App 端是 WKWebView，未实现 WKUIDelegate 时 prompt() 直接返回 null，
+   点击会毫无反应。自建弹层在浏览器与 App 内行为一致。 */
+
+function askAlias(agentName, current) {
+  return new Promise(resolve => {
+    const mask = document.createElement('div');
+    mask.className = 'dlg-mask';
+    mask.innerHTML = `
+      <div class="dlg">
+        <div class="dlg-title">给 ${esc(agentName)} 起个花名</div>
+        <div class="dlg-hint">留空并保存即可清除花名</div>
+        <input class="dlg-input" type="text" maxlength="20" placeholder="例如：小Q">
+        <div class="dlg-btns">
+          <button class="dlg-cancel">取消</button>
+          <button class="dlg-ok">保存</button>
+        </div>
+      </div>`;
+    document.body.appendChild(mask);
+    const input = mask.querySelector('.dlg-input');
+    input.value = current || '';
+
+    const close = val => {
+      mask.remove();
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    };
+    const onKey = e => {
+      if (e.key === 'Escape') close(null);
+      else if (e.key === 'Enter') close(input.value.trim());
+    };
+    document.addEventListener('keydown', onKey);
+    mask.querySelector('.dlg-ok').addEventListener('click', () => close(input.value.trim()));
+    mask.querySelector('.dlg-cancel').addEventListener('click', () => close(null));
+    mask.addEventListener('click', e => { if (e.target === mask) close(null); });
+
+    requestAnimationFrame(() => { input.focus(); input.select(); });
+  });
+}
+
 function ensureAgentCard(agent) {
   let card = document.getElementById('card-' + agent.name);
   if (card) return card;
@@ -89,9 +129,15 @@ function ensureAgentCard(agent) {
 
   card.querySelector('.alias-edit').addEventListener('click', async () => {
     const cur = card.querySelector('.agent-alias').textContent;
-    const alias = prompt(`给 ${agent.name} 起个花名（留空清除）`, cur);
+    const alias = await askAlias(agent.name, cur);
     if (alias === null) return;
-    await api('/api/alias', { agent: agent.name, alias });
+    const r = await api('/api/alias', { agent: agent.name, alias });
+    if (r && r.ok === false) {
+      toast(r.detail || '花名保存失败', true);
+      return;
+    }
+    // 立即回显，不等下一轮轮询
+    card.querySelector('.agent-alias').textContent = alias;
     toast(alias ? `花名已保存: ${alias}` : '花名已清除');
   });
   taskNodes[agent.name] = {};

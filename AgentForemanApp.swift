@@ -4,7 +4,7 @@
 import Cocoa
 import WebKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
     var window: NSWindow!
     var webView: WKWebView!
     let port = ProcessInfo.processInfo.environment["FOREMAN_PORT"] ?? "9527"
@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         webView = WKWebView(frame: rect)
         webView.autoresizingMask = [.width, .height]
+        webView.uiDelegate = self   // 不接管则网页 alert/confirm/prompt 全部静默失效
         window.contentView = webView
         webView.load(URLRequest(url: URL(string: "http://127.0.0.1:\(port)/")!))
 
@@ -52,6 +53,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // 关窗即退出（后端服务独立存活，继续采集）
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
+
+    // ── WKUIDelegate：WKWebView 默认不实现这些回调，网页里的 alert/confirm/prompt
+    // 会直接被忽略（prompt 返回 null），表现为点击毫无反应。前端已改用页内弹层，
+    // 这里仍补齐以防后续代码用到原生对话框时再次踩坑。
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        let a = NSAlert()
+        a.messageText = message
+        a.addButton(withTitle: "好")
+        a.runModal()
+        completionHandler()
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        let a = NSAlert()
+        a.messageText = message
+        a.addButton(withTitle: "确定")
+        a.addButton(withTitle: "取消")
+        completionHandler(a.runModal() == .alertFirstButtonReturn)
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String,
+                 defaultText: String?, initiatedByFrame frame: WKFrameInfo,
+                 completionHandler: @escaping (String?) -> Void) {
+        let a = NSAlert()
+        a.messageText = prompt
+        a.addButton(withTitle: "确定")
+        a.addButton(withTitle: "取消")
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        field.stringValue = defaultText ?? ""
+        a.accessoryView = field
+        if a.runModal() == .alertFirstButtonReturn {
+            completionHandler(field.stringValue)
+        } else {
+            completionHandler(nil)
+        }
+    }
 
     private func buildMenu() {
         let mainMenu = NSMenu()
