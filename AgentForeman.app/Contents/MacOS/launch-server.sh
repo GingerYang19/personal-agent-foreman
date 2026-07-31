@@ -1,0 +1,59 @@
+#!/bin/bash
+# 后端服务引导脚本（由桌面窗口程序 AgentForeman 调用，不直接面向用户）
+# 仓库模式: .app 位于仓库根目录，直接使用仓库中的 server.py
+# 独立模式: .app 内嵌项目(Contents/Resources/app，由 build_app.sh 生成)，
+#           每次启动先同步到 ~/Library/Application Support/AgentForeman 再运行，
+#           用户数据(journal.json/aliases.json/日志)保留在该目录，升级 App 不丢失。
+# 停止服务: pkill -f 'python3 .*server.py'
+
+PORT="${FOREMAN_PORT:-9527}"
+URL="http://127.0.0.1:${PORT}"
+
+alert() {
+  /usr/bin/osascript -e "display alert \"Agent 监工台\" message \"$1\" as critical" >/dev/null 2>&1
+}
+
+APP_BUNDLE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+PAYLOAD="${APP_BUNDLE}/Contents/Resources/app"
+
+if [ -f "${PAYLOAD}/server.py" ]; then
+  # 独立模式: 同步内嵌项目到运行目录（不加 --delete，保留用户数据文件）
+  RUN_DIR="${AGENT_FOREMAN_HOME:-$HOME/Library/Application Support/AgentForeman}"
+  /bin/mkdir -p "${RUN_DIR}"
+  if ! /usr/bin/rsync -a "${PAYLOAD}/" "${RUN_DIR}/"; then
+    alert "同步运行文件失败: ${RUN_DIR}"
+    exit 1
+  fi
+else
+  # 仓库模式: <repo>/AgentForeman.app/Contents/MacOS/launch-server.sh
+  RUN_DIR="$(dirname "${APP_BUNDLE}")"
+fi
+
+if [ ! -f "${RUN_DIR}/server.py" ]; then
+  alert "未找到 server.py。仓库模式下请保持 App 位于仓库根目录；独立安装版请用 build_app.sh 重新构建。"
+  exit 1
+fi
+
+server_up() {
+  /usr/bin/curl -s --max-time 1 "${URL}/api/state" >/dev/null 2>&1
+}
+
+if ! server_up; then
+  if ! command -v python3 >/dev/null 2>&1; then
+    alert "未找到 python3。请先安装 Xcode 命令行工具: xcode-select --install"
+    exit 1
+  fi
+  cd "${RUN_DIR}" || exit 1
+  FOREMAN_PORT="${PORT}" /usr/bin/nohup python3 "${RUN_DIR}/server.py" >> "${RUN_DIR}/server.log" 2>&1 &
+  # 等待就绪(最多 6 秒)
+  for _ in $(seq 1 20); do
+    sleep 0.3
+    server_up && break
+  done
+  if ! server_up; then
+    alert "服务启动失败，请查看 ${RUN_DIR}/server.log(可能是端口 ${PORT} 被占用)。"
+    exit 1
+  fi
+fi
+
+exit 0

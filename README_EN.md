@@ -9,7 +9,7 @@ A lightweight local web service that collects real-time session data from multip
 ## Features
 
 - **Multi-Agent Status Monitoring** — Real-time polling of 5 Agent data sources with tri-state detection (Working / Waiting for Reply / Idle), refreshed every 2 seconds
-- **One-click Launcher App** — Double-click `AgentForeman.app` to start the background service and open the dashboard, no command line needed
+- **Native Desktop App** — Double-click `AgentForeman.app` to use it in a standalone window (AppKit + WKWebView); the backend starts automatically, no command line and no browser
 - **Session Classification & Timeline** — Task cards grouped by Agent, with a unified daily timeline of all activity
 - **Real-time Data Collection** — Supports SQLite, JSONL, and directory scanning data source formats with incremental caching to avoid redundant reads
 - **Message Injection** — Send messages directly to Agents from the browser (Codex via CLI / others via clipboard + deep link + keystroke injection)
@@ -66,7 +66,7 @@ cd personal-agent-foreman
 
 **Option A: Double-click the App (recommended)**
 
-Double-click `AgentForeman.app` in the repository root. It starts the background service and opens the dashboard in your browser. If the service is already running, it just opens the page.
+Double-click `AgentForeman.app` in the repository root. It starts the background service and opens the dashboard in a **native desktop window** (no browser). If the service is already running, it just opens the window; closing the window leaves the backend collecting data.
 
 > If downloaded as a ZIP (not via git clone), the first launch may warn about an unverified developer: right-click the app → Open, or run `xattr -dr com.apple.quarantine AgentForeman.app` and retry.
 > To stop the service: `pkill -f 'python3 .*server.py'`.
@@ -200,6 +200,7 @@ WAITING_WINDOW = 900     # Active within 15min & last msg is assistant = Waiting
 ```
 
 - **Backend**: Python 3 standard library (`http.server` + `sqlite3` + `threading`), zero third-party dependencies
+- **Desktop shell**: Swift + AppKit + WKWebView (compiled to a universal binary with the system `swiftc`, no third-party frameworks)
 - **Frontend**: Vanilla HTML/CSS/JavaScript, no framework, no build step, hand-drawn SVG trend charts + CSS bar charts
 - **Data Collection**: Background thread polls every 5s, file-level mtime incremental caching, Skill/Overview full scans throttled to 300s
 - **Message Injection**: Codex uses CLI true-send; other Agents use `clipboard → deep link navigation → SendHelper.app keystroke injection`
@@ -209,8 +210,9 @@ WAITING_WINDOW = 900     # Active within 15min & last msg is assistant = Waiting
 ```
 personal-agent-foreman/
 ├── server.py              # Backend service (data collection + API + static files)
-├── AgentForeman.app/      # One-click launcher (starts service + opens browser, shell-based app)
-├── build_app.sh           # Builds the standalone app + distributable DMG (embeds the project)
+├── AgentForeman.app/      # Desktop app (native window + embedded WebView, includes boot script)
+├── AgentForemanApp.swift  # Desktop window program source (AppKit + WKWebView)
+├── build_app.sh           # Compiles the window program + builds the standalone app + DMG
 ├── web/
 │   ├── index.html         # Page structure (4 tabs)
 │   ├── style.css          # Light minimal theme styles

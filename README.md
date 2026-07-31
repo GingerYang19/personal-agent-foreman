@@ -9,7 +9,7 @@
 ## 功能特性
 
 - **多 Agent 状态监控** — 实时轮询 5 个 Agent 数据源，三态判定（开工 / 等回话 / 摸鱼），2 秒刷新
-- **一键启动 App** — 双击 `AgentForeman.app` 自动启动后台服务并打开监工台，无需命令行
+- **原生桌面应用** — 双击 `AgentForeman.app` 在独立窗口内使用（AppKit + WKWebView），自动拉起后台服务，无需命令行也不进浏览器
 - **会话分类与时间线** — 按 Agent 分组展示任务卡片，今日时间线一览所有活动
 - **实时数据采集** — 支持 SQLite、JSONL、目录扫描等多种数据源格式，增量缓存避免重复读取
 - **发话功能** — 在浏览器内直接向 Agent 发送消息（Codex CLI 真发话 / 其余通过剪贴板 + 深链 + 按键注入）
@@ -66,7 +66,7 @@ cd personal-agent-foreman
 
 **方式一：双击 App（推荐）**
 
-双击仓库根目录的 `AgentForeman.app`，会自动启动后台服务并打开浏览器进入监工台。服务已在运行时只打开页面，不会重复启动。
+双击仓库根目录的 `AgentForeman.app`，会自动启动后台服务并在**原生桌面窗口**中打开监工台（不跳浏览器）。服务已在运行时直接打开窗口，不会重复启动；关窗后后台服务继续采集。
 
 > 若以 ZIP 方式下载（非 git clone），首次打开可能提示无法验证开发者：右键 App → 打开，或执行 `xattr -dr com.apple.quarantine AgentForeman.app` 后重试。
 > 停止服务：`pkill -f 'python3 .*server.py'`。
@@ -77,7 +77,7 @@ cd personal-agent-foreman
 python3 server.py
 ```
 
-服务启动后访问 **http://localhost:9527** 即可打开监工台。
+服务启动后访问 **http://localhost:9527** 即可在浏览器中使用。
 
 **方式三：独立安装版（拖入 /Applications 即用）**
 
@@ -200,6 +200,7 @@ WAITING_WINDOW = 900     # 15分钟内活跃且末条是 assistant = 等回话
 ```
 
 - **后端**: Python 3 标准库（`http.server` + `sqlite3` + `threading`），无任何第三方依赖
+- **桌面外壳**: Swift + AppKit + WKWebView（系统自带 `swiftc` 编译为 universal 二进制，无第三方框架）
 - **前端**: 原生 HTML/CSS/JavaScript，无框架无构建，SVG 手绘趋势图 + CSS 柱状图
 - **数据采集**: 后台线程每 5 秒轮询，文件级 mtime 增量缓存，Skill/总览降频 300 秒全量扫描
 - **发话机制**: Codex 走 CLI 真发话；其余 Agent 通过 `剪贴板 → 深链跳转 → SendHelper.app 按键注入` 实现
@@ -209,8 +210,9 @@ WAITING_WINDOW = 900     # 15分钟内活跃且末条是 assistant = 等回话
 ```
 personal-agent-foreman/
 ├── server.py              # 后端服务（数据采集 + API + 静态文件）
-├── AgentForeman.app/      # 一键启动器（启动服务 + 打开浏览器，shell 启动器 App）
-├── build_app.sh           # 构建独立安装版 App + 发行 DMG（内嵌项目，拖入 /Applications 即用）
+├── AgentForeman.app/      # 桌面应用（原生窗口 + 内嵌 WebView，含引导脚本）
+├── AgentForemanApp.swift  # 桌面窗口程序源码（AppKit + WKWebView）
+├── build_app.sh           # 编译窗口程序 + 构建独立安装版 App + 发行 DMG
 ├── web/
 │   ├── index.html         # 页面结构（四 Tab）
 │   ├── style.css          # 浅色简约风样式

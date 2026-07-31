@@ -10,7 +10,21 @@ APP="${DIST}/AgentForeman.app"
 rm -rf "${APP}"
 mkdir -p "${DIST}"
 
-# 1) 复制 App 骨架（启动器 + Info.plist + 图标）
+# 0) 编译桌面窗口程序(AppKit + WKWebView, universal)到仓库根 App；无 swiftc 时沿用已提交的二进制
+BIN="AgentForeman.app/Contents/MacOS/AgentForeman"
+if command -v swiftc >/dev/null 2>&1; then
+  echo "▸ 编译桌面窗口程序…"
+  swiftc -O -target arm64-apple-macos11 -o /tmp/afm-arm64 AgentForemanApp.swift
+  if swiftc -O -target x86_64-apple-macos11 -o /tmp/afm-x86_64 AgentForemanApp.swift 2>/dev/null; then
+    /usr/bin/lipo -create -output "${BIN}" /tmp/afm-arm64 /tmp/afm-x86_64
+  else
+    cp /tmp/afm-arm64 "${BIN}"   # x86_64 工具链不可用时降级单架构
+  fi
+  rm -f /tmp/afm-arm64 /tmp/afm-x86_64
+  /usr/bin/codesign --force -s - AgentForeman.app >/dev/null 2>&1 || true
+fi
+
+# 1) 复制 App 骨架（窗口程序 + 引导脚本 + Info.plist + 图标）
 /usr/bin/ditto AgentForeman.app "${APP}"
 
 # 2) 内嵌项目 payload（排除仓库元数据/运行时文件/个人数据/宣传素材/测试）
@@ -20,12 +34,16 @@ mkdir -p "${PAYLOAD}"
   --exclude '.git' --exclude '.gitignore' --exclude '.qoder' \
   --exclude '__pycache__' --exclude '.DS_Store' \
   --exclude 'AgentForeman.app' --exclude 'dist' --exclude 'build_app.sh' \
+  --exclude 'AgentForemanApp.swift' \
   --exclude 'screenshots' --exclude 'tests' --exclude 'capture_*.py' \
   --exclude 'screenshot-v2.png' \
   --exclude 'server.log' --exclude 'server.err' --exclude 'send.log' \
   --exclude 'send_task.txt' --exclude 'send_result.txt' \
   --exclude 'journal.json' --exclude 'aliases.json' \
   ./ "${PAYLOAD}/"
+
+# 内嵌 payload 后重新 ad-hoc 签名
+/usr/bin/codesign --force -s - "${APP}" >/dev/null 2>&1 || true
 
 echo "✅ 已生成 ${APP}"
 
