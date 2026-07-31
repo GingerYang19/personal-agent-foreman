@@ -1026,14 +1026,10 @@ def open_url_or_app(agent, task):
         helper_activate("MuleRun Alibaba")
         return "已打开 Mulerun 会话"
     if agent == "Qoder":
-        cwd = task.get("cwd")
-        if cwd and os.path.isdir(cwd):
-            subprocess.run(["open", "-a", "Qoder", cwd], check=True)
-            helper_activate("Qoder")
-            return f"已在 Qoder 打开 {os.path.basename(cwd)}"
-        subprocess.run(["open", "-a", "Qoder"], check=True)
+        # Qoder 无会话级深链（qoder:// 仅登录回调），且 open -a Qoder <目录> 会强制置前编辑器窗口。
+        # 用户主要用 Quest 窗口：仅激活应用，macOS 会置前最近使用的窗口（通常即 Quest）
         helper_activate("Qoder")
-        return "已唤起 Qoder"
+        return "已置前 Qoder（Quest 窗口无法定位到具体对话，请在左侧列表选择）"
     if agent == "QoderWork":
         # 深链直达会话：app 的 handleDeepLink 白名单仅支持 notification-click?chatId= 导航到会话
         # （chats/<id> 路由不存在，只会激活应用不导航）；handler 内部 bringToFront，无需额外激活
