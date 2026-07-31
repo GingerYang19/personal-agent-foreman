@@ -30,8 +30,10 @@ import os
 import glob
 import sqlite3
 import subprocess
+import sys
 import threading
 import time
+import uuid
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urlparse
 
@@ -98,8 +100,9 @@ def send_log(msg):
     try:
         with open(SEND_LOG, "a", encoding="utf-8") as f:
             f.write(f"[{now_ts().isoformat()}] {msg}\n")
-    except OSError:
-        pass
+    except OSError as e:
+        # 日志汇不可写时降级到 stderr（launchd 下进 server.log），不再无声丢失
+        print(f"[SEND_LOG DEGRADED] {e}: {msg}", file=sys.stderr)
 
 
 def task_status(last_ts, last_role):
@@ -976,8 +979,8 @@ def helper_activate(app_name):
         send_log(f"activate {app_name}: {e}")
 
 
-def inject_message(agent, task, message):
-    """真发话: 消息进剪贴板 -> 深链跳到会话 -> SendHelper.app 粘贴并回车"""
+def inject_message(agent, task, message, sid=""):
+    """真发话: 消息进剪贴板 -> 深链跳到会话 -> SendHelper.app 粘贴并回车。sid 为本次发话关联 id"""
     cfg = UI_SEND[agent]
     copy_to_clipboard(message)
     open_url_or_app(agent, task)
@@ -995,13 +998,19 @@ def inject_message(agent, task, message):
             result = f.read().strip()
     except OSError:
         pass
+    # 结果文件补记关联 id，便于与 send.log / HTTP detail 对账
+    try:
+        with open(SEND_RESULT_FILE, "a", encoding="utf-8") as f:
+            f.write(f"\nsid={sid}\n")
+    except OSError:
+        pass
     if result != "ok":
         err = result or (r.stderr or "").strip() or "SendHelper 无响应"
-        send_log(f"inject {agent} FAIL: {err[-200:]}")
+        send_log(f"inject {agent} FAIL sid={sid}: {err[-200:]}")
         if "1002" in err or "not allowed" in err or "不允许" in err:
             raise RuntimeError("需授权: 系统设置→隐私与安全性→辅助功能，勾选 SendHelper 后重试（消息已在剪贴板，可手动粘贴）")
         raise RuntimeError(f"注入失败: {err[-120:]}（消息已在剪贴板，可手动粘贴）")
-    send_log(f"inject {agent} {str(task.get('id'))[:8]}: {message[:80]}")
+    send_log(f"inject {agent} {str(task.get('id'))[:8]} sid={sid}: {message[:80]}")
 
 
 def open_url_or_app(agent, task):
@@ -1038,10 +1047,12 @@ def open_url_or_app(agent, task):
 
 
 def do_send(agent, task_id, message):
-    """发话分发。返回 dict: {ok, mode, detail}"""
+    """发话分发。返回 dict: {ok, mode, detail}
+    每次请求生成 8 位关联 id(sid)，同时写入 HTTP detail、send.log 与结果文件，便于单文件还原失败链路"""
+    sid = uuid.uuid4().hex[:8]
     task = find_task(agent, task_id)
     if not task:
-        return {"ok": False, "detail": "任务不存在或已过期，请刷新"}
+        return {"ok": False, "detail": f"任务不存在或已过期，请刷新 [sid {sid}]"}
 
     message = (message or "").strip()
 
@@ -1055,21 +1066,21 @@ def do_send(agent, task_id, message):
         def run():
             try:
                 r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=1800)
-                send_log(f"codex resume {task_id[:8]} rc={r.returncode} err={r.stderr[-300:] if r.stderr else ''}")
+                send_log(f"codex resume {task_id[:8]} sid={sid} rc={r.returncode} err={r.stderr[-300:] if r.stderr else ''}")
             except Exception as e:
-                send_log(f"codex resume {task_id[:8]} EXC={e}")
+                send_log(f"codex resume {task_id[:8]} sid={sid} EXC={e}")
 
         threading.Thread(target=run, daemon=True).start()
-        send_log(f"codex dispatch {task_id[:8]}: {prompt[:80]}")
-        return {"ok": True, "mode": "cli", "detail": "已派发给 Codex，回复稍后出现在时间线"}
+        send_log(f"codex dispatch {task_id[:8]} sid={sid}: {prompt[:80]}")
+        return {"ok": True, "mode": "cli", "detail": f"已派发给 Codex，回复稍后出现在时间线 [sid {sid}]"}
 
     # UI 注入发话: 跳到会话窗口后自动粘贴发送；留空 = 催它继续
     if agent in UI_SEND:
         try:
-            inject_message(agent, task, message or "继续")
-            return {"ok": True, "mode": "ui", "detail": f"已打开 {agent} 会话并发送消息"}
+            inject_message(agent, task, message or "继续", sid=sid)
+            return {"ok": True, "mode": "ui", "detail": f"已打开 {agent} 会话并发送消息 [sid {sid}]"}
         except Exception as e:
-            return {"ok": False, "mode": "ui", "detail": str(e)}
+            return {"ok": False, "mode": "ui", "detail": f"{e} [sid {sid}]"}
 
     # 兜底: 剪贴板 + 唤起
     try:
@@ -1078,9 +1089,10 @@ def do_send(agent, task_id, message):
         detail = open_url_or_app(agent, task)
         if message:
             detail = f"消息已复制到剪贴板，{detail}，粘贴即可发送"
-        return {"ok": True, "mode": "clipboard", "detail": detail}
+        return {"ok": True, "mode": "clipboard", "detail": f"{detail} [sid {sid}]"}
     except Exception as e:
-        return {"ok": False, "detail": str(e)}
+        send_log(f"send {agent} fallback FAIL sid={sid}: {e}")
+        return {"ok": False, "detail": f"{e} [sid {sid}]"}
 
 
 def do_open(agent, task_id):
