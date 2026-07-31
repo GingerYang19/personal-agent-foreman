@@ -55,11 +55,12 @@ SEND_RESULT_FILE = os.path.join(HUB_DIR, "send_result.txt")
 
 # UI 注入发话配置: proc = 用于 activate 的应用名(tell application), pre_key = 粘贴前聚焦聊天输入框的快捷键, delay = 等待会话窗口就绪秒数
 # 注: SendHelper 按键直发给前台应用, 不再 tell process(Qoder 等 Electron 应用的进程名与应用名不一致)
+# delay 仅为深链发起留时间，窗口就绪等待在 SendHelper 内部轮询（最多 10s）
 UI_SEND = {
-    "QoderWork": {"proc": "QoderWork",       "pre_key": None, "delay": 2.0},
-    "Mulerun":   {"proc": "MuleRun Alibaba", "pre_key": None, "delay": 2.0},
-    "QwenWork":  {"proc": "QwenWorkCN",      "pre_key": None, "delay": 2.0},
-    "Qoder":     {"proc": "Qoder",           "pre_key": "l",  "delay": 2.5},  # Cmd+L 聚焦聊天
+    "QoderWork": {"proc": "QoderWork",       "pre_key": None, "delay": 1.0},
+    "Mulerun":   {"proc": "MuleRun Alibaba", "pre_key": None, "delay": 1.0},
+    "QwenWork":  {"proc": "QwenWorkCN",      "pre_key": None, "delay": 1.0},
+    "Qoder":     {"proc": "Qoder",           "pre_key": "l",  "delay": 1.0},  # Cmd+L 聚焦聊天
 }
 
 # 全局状态缓存
@@ -980,7 +981,9 @@ def helper_activate(app_name):
 
 
 def inject_message(agent, task, message, sid=""):
-    """真发话: 消息进剪贴板 -> 深链跳到会话 -> SendHelper.app 粘贴并回车。sid 为本次发话关联 id"""
+    """真发话: 消息进剪贴板 -> 深链跳到会话 -> SendHelper.app 粘贴并回车。sid 为本次发话关联 id
+    窗口就绪等待由 SendHelper 内部轮询完成（主服务在 launchd 下无权查询窗口状态），
+    这里只需给深链留出发起时间，故 delay 取较小值。"""
     cfg = UI_SEND[agent]
     copy_to_clipboard(message)
     open_url_or_app(agent, task)
@@ -991,7 +994,8 @@ def inject_message(agent, task, message, sid=""):
         os.remove(SEND_RESULT_FILE)
     except OSError:
         pass
-    r = subprocess.run(["open", "-W", "-a", SEND_HELPER], capture_output=True, text=True, timeout=30)
+    # SendHelper 内部最多等窗口 10s，超时上限需覆盖该等待
+    r = subprocess.run(["open", "-W", "-a", SEND_HELPER], capture_output=True, text=True, timeout=45)
     result = ""
     try:
         with open(SEND_RESULT_FILE, "r", encoding="utf-8") as f:
