@@ -9,6 +9,7 @@ A lightweight local web service that collects real-time session data from multip
 ## Features
 
 - **Multi-Agent Status Monitoring** — Real-time polling of 5 Agent data sources with tri-state detection (Working / Waiting for Reply / Idle), refreshed every 2 seconds
+- **One-click Launcher App** — Double-click `AgentForeman.app` to start the background service and open the dashboard, no command line needed
 - **Session Classification & Timeline** — Task cards grouped by Agent, with a unified daily timeline of all activity
 - **Real-time Data Collection** — Supports SQLite, JSONL, and directory scanning data source formats with incremental caching to avoid redundant reads
 - **Message Injection** — Send messages directly to Agents from the browser (Codex via CLI / others via clipboard + deep link + keystroke injection)
@@ -62,6 +63,15 @@ cd personal-agent-foreman
 ```
 
 ### 2. Start the Service
+
+**Option A: Double-click the App (recommended)**
+
+Double-click `AgentForeman.app` in the repository root. It starts the background service and opens the dashboard in your browser. If the service is already running, it just opens the page.
+
+> If downloaded as a ZIP (not via git clone), the first launch may warn about an unverified developer: right-click the app → Open, or run `xattr -dr com.apple.quarantine AgentForeman.app` and retry.
+> To stop the service: `pkill -f 'python3 .*server.py'`.
+
+**Option B: Command line**
 
 ```bash
 python3 server.py
@@ -187,6 +197,7 @@ WAITING_WINDOW = 900     # Active within 15min & last msg is assistant = Waiting
 ```
 personal-agent-foreman/
 ├── server.py              # Backend service (data collection + API + static files)
+├── AgentForeman.app/      # One-click launcher (starts service + opens browser, shell-based app)
 ├── web/
 │   ├── index.html         # Page structure (4 tabs)
 │   ├── style.css          # Light minimal theme styles

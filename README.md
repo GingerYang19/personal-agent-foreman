@@ -9,6 +9,7 @@
 ## 功能特性
 
 - **多 Agent 状态监控** — 实时轮询 5 个 Agent 数据源，三态判定（开工 / 等回话 / 摸鱼），2 秒刷新
+- **一键启动 App** — 双击 `AgentForeman.app` 自动启动后台服务并打开监工台，无需命令行
 - **会话分类与时间线** — 按 Agent 分组展示任务卡片，今日时间线一览所有活动
 - **实时数据采集** — 支持 SQLite、JSONL、目录扫描等多种数据源格式，增量缓存避免重复读取
 - **发话功能** — 在浏览器内直接向 Agent 发送消息（Codex CLI 真发话 / 其余通过剪贴板 + 深链 + 按键注入）
@@ -62,6 +63,15 @@ cd personal-agent-foreman
 ```
 
 ### 2. 启动服务
+
+**方式一：双击 App（推荐）**
+
+双击仓库根目录的 `AgentForeman.app`，会自动启动后台服务并打开浏览器进入监工台。服务已在运行时只打开页面，不会重复启动。
+
+> 若以 ZIP 方式下载（非 git clone），首次打开可能提示无法验证开发者：右键 App → 打开，或执行 `xattr -dr com.apple.quarantine AgentForeman.app` 后重试。
+> 停止服务：`pkill -f 'python3 .*server.py'`。
+
+**方式二：命令行**
 
 ```bash
 python3 server.py
@@ -187,6 +197,7 @@ WAITING_WINDOW = 900     # 15分钟内活跃且末条是 assistant = 等回话
 ```
 personal-agent-foreman/
 ├── server.py              # 后端服务（数据采集 + API + 静态文件）
+├── AgentForeman.app/      # 一键启动器（启动服务 + 打开浏览器，shell 启动器 App）
 ├── web/
 │   ├── index.html         # 页面结构（四 Tab）
 │   ├── style.css          # 浅色简约风样式
