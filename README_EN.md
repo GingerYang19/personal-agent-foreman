@@ -8,7 +8,7 @@ A lightweight local web service that collects real-time session data from multip
 
 ## Features
 
-- **Multi-Agent Status Monitoring** — Real-time polling of 5 Agent data sources with tri-state detection (Working / Waiting for Reply / Idle), refreshed every 5 seconds
+- **Multi-Agent Status Monitoring** — Real-time polling of 5 Agent data sources with tri-state detection (Working / Waiting for Reply / Idle), refreshed every 2 seconds
 - **Session Classification & Timeline** — Task cards grouped by Agent, with a unified daily timeline of all activity
 - **Real-time Data Collection** — Supports SQLite, JSONL, and directory scanning data source formats with incremental caching to avoid redundant reads
 - **Message Injection** — Send messages directly to Agents from the browser (Codex via CLI / others via clipboard + deep link + keystroke injection)
@@ -159,7 +159,7 @@ WAITING_WINDOW = 900     # Active within 15min & last msg is assistant = Waiting
 ┌─────────────────────────────────────────────────┐
 │              Browser (Frontend)                  │
 │   index.html + style.css + app.js (Vanilla JS)  │
-│   Zero deps · Hand-drawn SVG charts · 5s poll   │
+│   Zero deps · Hand-drawn SVG charts · 2s poll   │
 └──────────────────────┬──────────────────────────┘
                        │ HTTP (localhost:9527)
 ┌──────────────────────▼──────────────────────────┐
