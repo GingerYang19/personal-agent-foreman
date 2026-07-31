@@ -9,7 +9,7 @@
 ## 功能特性
 
 - **多 Agent 状态监控** — 实时轮询 5 个 Agent 数据源，三态判定（开工 / 等回话 / 摸鱼），2 秒刷新
-- **双形态使用** — 既可双击 `AgentForeman.app` 在原生桌面窗口使用（AppKit + WKWebView），也可直接在浏览器访问网页版，两者共享同一服务与数据
+- **双形态使用** — 桌面 App（原生窗口，AppKit + WKWebView）与网页版任选，共享同一服务与数据
 - **会话分类与时间线** — 按 Agent 分组展示任务卡片，今日时间线一览所有活动
 - **实时数据采集** — 支持 SQLite、JSONL、目录扫描等多种数据源格式，增量缓存避免重复读取
 - **发话功能** — 在浏览器内直接向 Agent 发送消息（Codex CLI 真发话 / 其余通过剪贴板 + 深链 + 按键注入）
@@ -55,52 +55,33 @@
 
 ## 安装与使用
 
-### 1. 克隆仓库
+提供**桌面版**和**网页版**两种形态，共享同一个后端服务与同一份数据，任选其一或同时使用。
+
+### 桌面版（推荐）
+
+从 [Releases](https://github.com/GingerYang19/personal-agent-foreman/releases/latest) 下载 `AgentForeman.dmg` → 双击挂载 → 把 **AgentForeman** 拖入「应用程序」→ 双击启用。
+
+在原生窗口内使用，自动启动后台服务；关窗后服务继续采集。需要网页版时，菜单选「显示 → 在浏览器中打开」（⌘⇧B）。
+
+> 首次打开提示无法验证开发者：右键 App → 打开。
+> 运行数据位于 `~/Library/Application Support/AgentForeman`，升级 App 不丢数据；发话功能需为该目录下的 `SendHelper.app` 授权辅助功能。
+> 也可克隆仓库后执行 `./build_app.sh` 自行构建（产物在 `dist/`）。
+
+### 网页版
 
 ```bash
 git clone https://github.com/GingerYang19/personal-agent-foreman.git
 cd personal-agent-foreman
-```
-
-### 2. 启动服务
-
-提供**桌面版**与**网页版**两种使用方式，共享同一个后端服务和同一份数据，可任意切换、也可同时开着：
-
-| 使用方式 | 启动入口 | 适合场景 |
-|---------|---------|---------|
-| **桌面版** | 双击 `AgentForeman.app` | 当作独立应用常驻，有 Dock 图标与菜单栏 |
-| **网页版** | 命令行启动后访问 `localhost:9527`；或在桌面版菜单选「显示 → 在浏览器中打开」（⌘⇧B） | 多标签页对照、与其他网页并行、远程转发等 |
-
-**方式一：双击 App（桌面版，推荐）**
-
-双击仓库根目录的 `AgentForeman.app`，会自动启动后台服务并在**原生桌面窗口**中打开监工台。服务已在运行时直接打开窗口，不会重复启动；关窗后后台服务继续采集。需要网页版时，菜单选「显示 → 在浏览器中打开」即可。
-
-> 若以 ZIP 方式下载（非 git clone），首次打开可能提示无法验证开发者：右键 App → 打开，或执行 `xattr -dr com.apple.quarantine AgentForeman.app` 后重试。
-> 停止服务：`pkill -f 'python3 .*server.py'`。
-
-**方式二：命令行（网页版）**
-
-```bash
 python3 server.py
 ```
 
-服务启动后访问 **http://localhost:9527** 即可在任意浏览器中使用（与桌面版功能完全一致）。
+访问 **http://localhost:9527** 即可，功能与桌面版完全一致。无需下载安装包。
 
-**方式三：独立安装版（拖入 /Applications 即用）**
+> 停止服务：`pkill -f 'python3 .*server.py'`；端口可用 `FOREMAN_PORT` 覆盖。
 
-```bash
-./build_app.sh
-```
+### 开机自启（可选）
 
-生成 `dist/AgentForeman.app` 与发行镜像 `dist/AgentForeman.dmg`。App 内嵌了完整项目，拖入「应用程序」文件夹即可双击使用，不依赖仓库目录；DMG 可直接发给他人：双击挂载 → 把 AgentForeman 拖入 Applications 即完成安装：
-
-- 运行文件与用户数据位于 `~/Library/Application Support/AgentForeman`，重新构建替换 App 后数据保留
-- 发话功能需为该目录下的 `SendHelper.app` 授权辅助功能
-- 端口可用环境变量覆盖：`FOREMAN_PORT=9600 open dist/AgentForeman.app`
-
-### 3. 注册为后台服务（可选，推荐）
-
-创建 launchd plist 实现开机自启 + 崩溃保活：
+网页版可创建 launchd plist 实现开机自启 + 崩溃保活（桌面版双击即可，无需配置）：
 
 ```bash
 # 将项目复制到运行目录
@@ -141,7 +122,7 @@ launchctl load ~/Library/LaunchAgents/com.personal-hub.monitor.plist
 
 > 将 `你的用户名` 替换为实际的 macOS 用户名。
 
-### 4. 授权辅助功能（发话功能需要）
+### 授权辅助功能（发话功能需要）
 
 1. 打开「系统设置 → 隐私与安全性 → 辅助功能」
 2. 点击 `+`，添加项目中的 `SendHelper.app`

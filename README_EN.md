@@ -9,7 +9,7 @@ A lightweight local web service that collects real-time session data from multip
 ## Features
 
 - **Multi-Agent Status Monitoring** — Real-time polling of 5 Agent data sources with tri-state detection (Working / Waiting for Reply / Idle), refreshed every 2 seconds
-- **Two Ways to Use** — Run it as a native desktop app by double-clicking `AgentForeman.app` (AppKit + WKWebView), or open the web version in any browser — both share the same service and data
+- **Two Forms** — Native desktop app (AppKit + WKWebView) or web version, sharing the same service and data
 - **Session Classification & Timeline** — Task cards grouped by Agent, with a unified daily timeline of all activity
 - **Real-time Data Collection** — Supports SQLite, JSONL, and directory scanning data source formats with incremental caching to avoid redundant reads
 - **Message Injection** — Send messages directly to Agents from the browser (Codex via CLI / others via clipboard + deep link + keystroke injection)
@@ -55,52 +55,33 @@ Record daily collaboration insights, with save/edit/history browsing support.
 
 ## Installation & Usage
 
-### 1. Clone the Repository
+Two forms are available — **desktop app** and **web version** — sharing the same backend service and data. Pick either, or use both.
+
+### Desktop app (recommended)
+
+Download `AgentForeman.dmg` from [Releases](https://github.com/GingerYang19/personal-agent-foreman/releases/latest) → mount it → drag **AgentForeman** into Applications → double-click.
+
+Runs in a native window and starts the backend automatically; closing the window leaves the backend collecting data. For the web version, choose “View → Open in Browser” (⌘⇧B).
+
+> If the first launch warns about an unverified developer: right-click the app → Open.
+> Runtime data lives in `~/Library/Application Support/AgentForeman` and survives app upgrades; message injection requires granting Accessibility permission to the `SendHelper.app` inside that directory.
+> You can also clone the repo and run `./build_app.sh` to build it yourself (output in `dist/`).
+
+### Web version
 
 ```bash
 git clone https://github.com/GingerYang19/personal-agent-foreman.git
 cd personal-agent-foreman
-```
-
-### 2. Start the Service
-
-There are two ways to use it — **desktop app** and **web version** — sharing the same backend service and data. Switch freely, or keep both open:
-
-| Mode | Entry point | Best for |
-|------|-------------|----------|
-| **Desktop app** | Double-click `AgentForeman.app` | Using it as a standalone app with a Dock icon and menu bar |
-| **Web version** | Start from the command line and open `localhost:9527`; or in the desktop app choose “View → Open in Browser” (⌘⇧B) | Multi-tab comparison, side-by-side with other pages, remote forwarding |
-
-**Option A: Double-click the App (desktop, recommended)**
-
-Double-click `AgentForeman.app` in the repository root. It starts the background service and opens the dashboard in a **native desktop window**. If the service is already running, it just opens the window; closing the window leaves the backend collecting data. For the web version, choose “View → Open in Browser” from the menu.
-
-> If downloaded as a ZIP (not via git clone), the first launch may warn about an unverified developer: right-click the app → Open, or run `xattr -dr com.apple.quarantine AgentForeman.app` and retry.
-> To stop the service: `pkill -f 'python3 .*server.py'`.
-
-**Option B: Command line (web version)**
-
-```bash
 python3 server.py
 ```
 
-Once started, open **http://localhost:9527** in any browser (identical features to the desktop app).
+Open **http://localhost:9527** — identical features to the desktop app. No installer needed.
 
-**Option C: Standalone installable app (drag into /Applications)**
+> To stop the service: `pkill -f 'python3 .*server.py'`; the port can be overridden with `FOREMAN_PORT`.
 
-```bash
-./build_app.sh
-```
+### Auto-start on boot (optional)
 
-This produces `dist/AgentForeman.app` and a distributable image `dist/AgentForeman.dmg`. The app embeds the whole project — drag it into the Applications folder and double-click, no repository directory needed. The DMG can be shared directly: mount it and drag AgentForeman into Applications:
-
-- Runtime files and user data live in `~/Library/Application Support/AgentForeman`; data survives app upgrades
-- Message injection requires granting Accessibility permission to the `SendHelper.app` inside that directory
-- Port can be overridden via environment variable: `FOREMAN_PORT=9600 open dist/AgentForeman.app`
-
-### 3. Register as a Background Service (Optional, Recommended)
-
-Create a launchd plist for auto-start on boot + crash recovery:
+For the web version you can create a launchd plist for auto-start on boot + crash recovery (the desktop app needs no setup — just double-click):
 
 ```bash
 # Copy project to runtime directory
@@ -141,7 +122,7 @@ launchctl load ~/Library/LaunchAgents/com.personal-hub.monitor.plist
 
 > Replace `YOUR_USERNAME` with your actual macOS username.
 
-### 4. Grant Accessibility Permission (Required for Message Injection)
+### Grant Accessibility Permission (required for message injection)
 
 1. Open System Settings → Privacy & Security → Accessibility
 2. Click `+` and add `SendHelper.app` from the project directory
