@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 个人中枢 v2 · Agent 监工台
-参考 agent-foreman：状态三分组（等回话/开工/摸鱼）、浏览器内发话、点击跳转到 Agent。
 
 数据源:
   QoderWork  ~/Library/Application Support/QoderWork/data/agents.db   (SQLite)
