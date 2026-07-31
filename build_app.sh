@@ -1,6 +1,6 @@
 #!/bin/bash
-# 构建可独立安装的 AgentForeman.app（内嵌整个项目，拖入 /Applications 即用）
-# 产物: dist/AgentForeman.app
+# 构建可独立安装的 AgentForeman.app + 发行 DMG（内嵌整个项目，拖入 /Applications 即用）
+# 产物: dist/AgentForeman.app、dist/AgentForeman.dmg
 # 运行数据目录: ~/Library/Application Support/AgentForeman（升级 App 不丢用户数据）
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -28,6 +28,18 @@ mkdir -p "${PAYLOAD}"
   ./ "${PAYLOAD}/"
 
 echo "✅ 已生成 ${APP}"
-echo "   将其拖入 /Applications 即可使用（首次打开: 右键 → 打开）"
+
+# 3) 打包 DMG（含拖入安装的 Applications 软链）
+DMG="${DIST}/AgentForeman.dmg"
+STAGING="${DIST}/.dmg-staging"
+rm -rf "${STAGING}" "${DMG}"
+mkdir -p "${STAGING}"
+/usr/bin/ditto "${APP}" "${STAGING}/AgentForeman.app"
+ln -s /Applications "${STAGING}/Applications"
+/usr/bin/hdiutil create -volname "Agent 监工台" -srcfolder "${STAGING}" -ov -format UDZO -quiet "${DMG}"
+rm -rf "${STAGING}"
+
+echo "✅ 已生成 ${DMG}"
+echo "   分发: 发给他人后双击挂载，把 AgentForeman 拖入 Applications 即可（首次打开: 右键 → 打开）"
 echo "   运行数据位于 ~/Library/Application Support/AgentForeman"
 echo "   发话功能需为该目录下的 SendHelper.app 授权辅助功能"

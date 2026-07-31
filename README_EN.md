@@ -85,7 +85,7 @@ Once started, open **http://localhost:9527** in your browser.
 ./build_app.sh
 ```
 
-The generated `dist/AgentForeman.app` embeds the whole project — drag it into the Applications folder and double-click, no repository directory needed:
+This produces `dist/AgentForeman.app` and a distributable image `dist/AgentForeman.dmg`. The app embeds the whole project — drag it into the Applications folder and double-click, no repository directory needed. The DMG can be shared directly: mount it and drag AgentForeman into Applications:
 
 - Runtime files and user data live in `~/Library/Application Support/AgentForeman`; data survives app upgrades
 - Message injection requires granting Accessibility permission to the `SendHelper.app` inside that directory
@@ -210,7 +210,7 @@ WAITING_WINDOW = 900     # Active within 15min & last msg is assistant = Waiting
 personal-agent-foreman/
 ├── server.py              # Backend service (data collection + API + static files)
 ├── AgentForeman.app/      # One-click launcher (starts service + opens browser, shell-based app)
-├── build_app.sh           # Builds the standalone installable app (embeds the project)
+├── build_app.sh           # Builds the standalone app + distributable DMG (embeds the project)
 ├── web/
 │   ├── index.html         # Page structure (4 tabs)
 │   ├── style.css          # Light minimal theme styles

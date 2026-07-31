@@ -85,7 +85,7 @@ python3 server.py
 ./build_app.sh
 ```
 
-生成的 `dist/AgentForeman.app` 内嵌了完整项目，拖入「应用程序」文件夹即可双击使用，不依赖仓库目录：
+生成 `dist/AgentForeman.app` 与发行镜像 `dist/AgentForeman.dmg`。App 内嵌了完整项目，拖入「应用程序」文件夹即可双击使用，不依赖仓库目录；DMG 可直接发给他人：双击挂载 → 把 AgentForeman 拖入 Applications 即完成安装：
 
 - 运行文件与用户数据位于 `~/Library/Application Support/AgentForeman`，重新构建替换 App 后数据保留
 - 发话功能需为该目录下的 `SendHelper.app` 授权辅助功能
@@ -210,7 +210,7 @@ WAITING_WINDOW = 900     # 15分钟内活跃且末条是 assistant = 等回话
 personal-agent-foreman/
 ├── server.py              # 后端服务（数据采集 + API + 静态文件）
 ├── AgentForeman.app/      # 一键启动器（启动服务 + 打开浏览器，shell 启动器 App）
-├── build_app.sh           # 构建独立安装版（内嵌项目，拖入 /Applications 即用）
+├── build_app.sh           # 构建独立安装版 App + 发行 DMG（内嵌项目，拖入 /Applications 即用）
 ├── web/
 │   ├── index.html         # 页面结构（四 Tab）
 │   ├── style.css          # 浅色简约风样式
