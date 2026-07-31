@@ -53,4 +53,4 @@
 
 遵守 [README.md「开发建议」](README.md#开发建议):后端零依赖(仅 Python 标准库)、前端 Vanilla JS 无框架无构建、图表用 SVG/CSS 不引图表库;新增 Agent 适配 = 在 `server.py` 添加 `poll_xxx()` 并注册进 `poll_all()`。测试层同样遵守零依赖(标准库 `unittest`,不引入 pytest)。
 
-另:`AgentForeman.app` 是纯 shell 启动器 App(Info.plist + bash 脚本 + 图标),双击 = 检测 9527 端口 → 未运行则 nohup 拉起 server.py → open 浏览器;修改启动行为只改 `AgentForeman.app/Contents/MacOS/AgentForeman`,不引入编译/签名流程。
+另:`AgentForeman.app` 是纯 shell 启动器 App(Info.plist + bash 脚本 + 图标),双模式:仓库模式直接用仓库里的 server.py;独立模式(由 `build_app.sh` 生成、内嵌项目到 Contents/Resources/app)启动时先 rsync 到 `~/Library/Application Support/AgentForeman` 再运行(不带 --delete,保留用户数据)。启动流程 = 检测端口(可由 FOREMAN_PORT 覆盖,server.py 同名环境变量联动) → 未运行则 nohup 拉起 → open 浏览器;修改启动行为只改 `AgentForeman.app/Contents/MacOS/AgentForeman`,不引入编译/签名流程;`dist/` 为构建产物已被 .gitignore。

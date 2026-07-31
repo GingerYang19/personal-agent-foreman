@@ -79,6 +79,18 @@ python3 server.py
 
 Once started, open **http://localhost:9527** in your browser.
 
+**Option C: Standalone installable app (drag into /Applications)**
+
+```bash
+./build_app.sh
+```
+
+The generated `dist/AgentForeman.app` embeds the whole project — drag it into the Applications folder and double-click, no repository directory needed:
+
+- Runtime files and user data live in `~/Library/Application Support/AgentForeman`; data survives app upgrades
+- Message injection requires granting Accessibility permission to the `SendHelper.app` inside that directory
+- Port can be overridden via environment variable: `FOREMAN_PORT=9600 open dist/AgentForeman.app`
+
 ### 3. Register as a Background Service (Optional, Recommended)
 
 Create a launchd plist for auto-start on boot + crash recovery:
@@ -198,6 +210,7 @@ WAITING_WINDOW = 900     # Active within 15min & last msg is assistant = Waiting
 personal-agent-foreman/
 ├── server.py              # Backend service (data collection + API + static files)
 ├── AgentForeman.app/      # One-click launcher (starts service + opens browser, shell-based app)
+├── build_app.sh           # Builds the standalone installable app (embeds the project)
 ├── web/
 │   ├── index.html         # Page structure (4 tabs)
 │   ├── style.css          # Light minimal theme styles

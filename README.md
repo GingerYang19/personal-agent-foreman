@@ -79,6 +79,18 @@ python3 server.py
 
 服务启动后访问 **http://localhost:9527** 即可打开监工台。
 
+**方式三：独立安装版（拖入 /Applications 即用）**
+
+```bash
+./build_app.sh
+```
+
+生成的 `dist/AgentForeman.app` 内嵌了完整项目，拖入「应用程序」文件夹即可双击使用，不依赖仓库目录：
+
+- 运行文件与用户数据位于 `~/Library/Application Support/AgentForeman`，重新构建替换 App 后数据保留
+- 发话功能需为该目录下的 `SendHelper.app` 授权辅助功能
+- 端口可用环境变量覆盖：`FOREMAN_PORT=9600 open dist/AgentForeman.app`
+
 ### 3. 注册为后台服务（可选，推荐）
 
 创建 launchd plist 实现开机自启 + 崩溃保活：
@@ -157,7 +169,7 @@ launchctl load ~/Library/LaunchAgents/com.personal-hub.monitor.plist
 在 `server.py` 头部可修改：
 
 ```python
-PORT = 9527              # 服务端口
+PORT = 9527              # 服务端口（也可用环境变量 FOREMAN_PORT 覆盖）
 POLL_INTERVAL = 5        # 轮询间隔（秒）
 WORKING_THRESHOLD = 60   # 60秒内有写入 = 开工
 WAITING_WINDOW = 900     # 15分钟内活跃且末条是 assistant = 等回话
@@ -198,6 +210,7 @@ WAITING_WINDOW = 900     # 15分钟内活跃且末条是 assistant = 等回话
 personal-agent-foreman/
 ├── server.py              # 后端服务（数据采集 + API + 静态文件）
 ├── AgentForeman.app/      # 一键启动器（启动服务 + 打开浏览器，shell 启动器 App）
+├── build_app.sh           # 构建独立安装版（内嵌项目，拖入 /Applications 即用）
 ├── web/
 │   ├── index.html         # 页面结构（四 Tab）
 │   ├── style.css          # 浅色简约风样式

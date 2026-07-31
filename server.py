@@ -38,7 +38,7 @@ from datetime import datetime, timezone, timedelta
 from urllib.parse import urlparse
 
 TZ = timezone(timedelta(hours=8))
-PORT = 9527
+PORT = int(os.environ.get("FOREMAN_PORT", "9527"))  # 可用环境变量覆盖，供独立安装版/多实例使用
 POLL_INTERVAL = 5          # 秒，后台轮询间隔
 WORKING_THRESHOLD = 60     # 60 秒内有写入 = 开工
 WAITING_WINDOW = 900       # 15 分钟内活跃且最后一条是 assistant = 等回话

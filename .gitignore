@@ -19,6 +19,9 @@ journal.json
 # 旧截图
 screenshot-v2.png
 
+# 独立安装版构建产物
+dist/
+
 # macOS
 .DS_Store
 ._*
